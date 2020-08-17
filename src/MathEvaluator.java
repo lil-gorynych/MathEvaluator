@@ -1,24 +1,35 @@
-import java.sql.SQLOutput;
+
 import java.util.ArrayList;
+/*
+TODO:
+add minimum for '+-' and /*
+
+*/
 
 public class MathEvaluator {
 
     public static void main(String[] args) {
-        String string = "(5 +  6 + 765) -(3 / 5)";
+        String string = "(123.45*(678.90 / (-2.5+ 11.5)-(((80 -(19))) *33.25)) / 20) - (123.45*(678.90 / (-2.5+ 11.5)-(((80 -(19))) *33.25)) / 20) + (13 - 2)/ -(-11) ";
+        //String string = "((2.33 / (2.9+3.5)*4) - -6)";
+
         System.out.println(calculate(string));
     }
 
     public static double calculate (String string) {
         Expression expr = new Expression(string);
-        expr.parseMinuses();
-
         for (String i : expr.expression) {
-            System.out.print(i + "");
+            System.out.print(i + " ");
         }
         System.out.println();
 
         while (expr.expression.size() != 1) {
-            expr.doBigAction();
+            int changeIndex = expr.doBigAction();
+            expr.recalculateNumbers(changeIndex);
+
+            for (String i : expr.expression) {
+                System.out.print(i + " ");
+            }
+            System.out.println();
         }
 
 
@@ -35,37 +46,67 @@ public class MathEvaluator {
 
         private ArrayList<String> parseToExpression (String string) {
             String number = "", letter;
+            boolean startNumber = true;
             ArrayList<String> result = new ArrayList<>();
+
 
             for (int i = 0; i < string.length(); i++) {
                 letter = string.charAt(i) + "";
 
                 if (letter.equals(" ")) { continue; }
-                if (this.signs.contains(letter)) {
+                if (")".contains(letter)) {
                     if (number.length() > 0) { result.add(number); number = ""; }
-
                     result.add(letter);
-                } else {
-                    number += letter;
+                    startNumber = false;
+                    continue;
                 }
+                if ("(/*+".contains(letter)) {
+                    if (number.length() > 0) { result.add(number); number = ""; }
+                    result.add(letter);
+                    startNumber = true;
+                    continue;
+                }
+                if (letter.equals("-") && !startNumber) {
+                    if (number.length() > 0) { result.add(number); number = ""; }
+                    result.add(letter);
+                    startNumber = true;
+                    continue;
+                }
+                number += letter;
+                startNumber = false;
             }
 
             if (number.length() > 0) { result.add(number); }
 
             result.add(0, "("); result.add(")");
-
             return result;
         }
 
-        public void parseMinuses () {
-            boolean number = false;
-            boolean sign = false;
-            boolean brackets = false;
-
-
+        public void recalculateNumbers (int changeIndex) {
+            switch (changeIndex) {
+                case 0: break;
+                case 1:
+                    if (this.expression.get(0).equals("-")) {
+                        this.expression.remove(0);
+                        this.expression.add(0, mirror(this.expression.get(0)));
+                        this.expression.remove(1);
+                    }
+                    break;
+                default:
+                    if (this.expression.get(changeIndex-1).equals("-")
+                            && this.signs.contains(this.expression.get(changeIndex-2))) {
+                        this.expression.remove(changeIndex-1);
+                        this.expression.add(changeIndex-1, mirror(this.expression.get(changeIndex-1)));
+                        this.expression.remove(changeIndex);
+                    }
+            }
         }
 
-        public void doBigAction () {
+        private String mirror(String str) {
+            return String.valueOf(-1 * Double.parseDouble(str));
+        }
+
+        public int doBigAction () {
             int[] box = findBox ();
             String res;
             ArrayList<String> subExpression = new ArrayList<>();
@@ -86,6 +127,8 @@ public class MathEvaluator {
                 this.expression.subList(box[0], box[1] + 1).clear();
                 this.expression.add(box[0], res);
             }
+
+            return box[0];
         }
 
         private int[] findBox () {
@@ -104,6 +147,11 @@ public class MathEvaluator {
         private String calculateSub (ArrayList<String> array) {
             while (array.size() != 1) {
                 int position = findPosition(array);
+
+                for (String i : array) {
+                    System.out.print(i + " ");
+                }
+                System.out.println();
 
                 String num1 = array.get(position - 1);
                 String sign = array.get(position + 0);
@@ -133,10 +181,11 @@ public class MathEvaluator {
         }
 
         private int findPosition (ArrayList<String> array) {
-            int position = array.indexOf("*");
-            if (position == -1) { position = array.indexOf("/"); }
-            if (position == -1) { position = array.indexOf("+"); }
+
+            int position = array.indexOf("/");
+            if (position == -1) { position = array.indexOf("*"); }
             if (position == -1) { position = array.indexOf("-"); }
+            if (position == -1) { position = array.indexOf("+"); }
 
             return position;
         }
